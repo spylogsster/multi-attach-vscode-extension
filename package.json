@@ -1,0 +1,55 @@
+{
+  "name": "app-debug-helper",
+  "displayName": "Auto Attach Debug Helper",
+  "description": "This VSCode extension automatically attaches the debugger to all application processes with smart breakpoint filtering. The extension keeps debugger attached only to processes that have loaded sources with active breakpoints (detaches from processes without relevant breakpoints to reduce overhead). Tested and optimized for Chromium browser development, where multi-process architecture requires debugging multiple child processes (renderer, GPU, utility, etc.).",
+  "version": "1.5.0",
+  "license": "MPL-2.0",
+  "publisher": "spylogsster",
+  "author": {
+    "name": "Poletaev Sergei <spylogsster@gmail.com>"
+  },
+  "engines": {
+    "vscode": "^1.60.0"
+  },
+  "categories": [
+    "Debuggers"
+  ],
+  "activationEvents": [
+    "onDebug"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "app-debug.attachAll",
+        "title": "Attach to All Processes",
+        "category": "App Debug"
+      }
+    ],
+    "debuggers": [
+      {
+        "type": "app-multi-attach",
+        "label": "App Multi-Process Attach"
+      }
+    ]
+  },
+  "scripts": {
+    "package": "node install.js",
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretests": "npm run compile",
+    "tests": "jest",
+    "tests:watch": "jest --watch",
+    "tests:coverage": "jest --coverage"
+  },
+  "devDependencies": {
+    "@types/jest": "^29.5.0",
+    "@types/node": "^18.0.0",
+    "@types/vscode": "^1.60.0",
+    "jest": "^29.5.0",
+    "ts-jest": "^29.1.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {}
+}
