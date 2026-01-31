@@ -1,8 +1,8 @@
-# App Debug Helper Extension
+# Smart Multi-Process Debugger
 
 This VSCode extension automatically attaches the debugger to all application processes with smart breakpoint filtering. The extension keeps debugger attached only to processes that have loaded sources with active breakpoints (detaches from processes without relevant breakpoints to reduce overhead).
 
-Tested and optimized for Chromium browser development, where multi-process architecture requires debugging multiple child processes (renderer, GPU, utility, etc.).
+Optimized for Chromium browser development, where multi-process architecture requires debugging multiple child processes (renderer, GPU, utility, etc.).
 
 ## Features
 
