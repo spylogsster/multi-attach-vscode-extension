@@ -185,6 +185,11 @@ export class DebugSessionManager {
    * Attach to new processes that aren't already attached
    */
   async attachToNewProcesses(): Promise<AttachResult> {
+    // Don't attach if main session is no longer valid (cleanup happened)
+    if (!this.mainLaunchSession) {
+      return { attached: 0, failed: 0 };
+    }
+
     const execName = this.processMonitor.getExecutableName();
     if (!execName) {
       this.logger.log('No executable name set, cannot attach to processes');
@@ -214,6 +219,12 @@ export class DebugSessionManager {
     let failed = 0;
 
     for (const pid of newPids) {
+      // Bail out if main session was terminated during iteration
+      if (!this.mainLaunchSession) {
+        this.logger.log('Main session terminated, stopping attach loop');
+        break;
+      }
+
       // Double-check before attaching (race condition prevention)
       if (this.processMonitor.isDebuggerAttached(pid)) {
         continue; // Already being handled
@@ -372,8 +383,13 @@ export class DebugSessionManager {
           attached++;
         } else {
           this.processMonitor.untrackPid(pid);
-          failed++;
-          this.logger.log(`✗ Failed to initiate attach to PID ${pid}`);
+          // Check if process exited during attach attempt (common race condition)
+          if (!this.processMonitor.isProcessRunning(pid)) {
+            this.logger.log(`⚠ PID ${pid} exited before attach completed (process no longer running)`);
+          } else {
+            failed++;
+            this.logger.log(`✗ Failed to initiate attach to PID ${pid}`);
+          }
         }
 
         // Small delay between attachments
@@ -383,11 +399,16 @@ export class DebugSessionManager {
         if (errorMsg.toLowerCase().includes('already') || errorMsg.toLowerCase().includes('attached')) {
           this.logger.log(`⚠ PID ${pid} already has debugger attached, marking as external`);
           this.processMonitor.trackPid(pid, 'external');
+          failed++;
+        } else if (errorMsg.toLowerCase().includes('no process') || errorMsg.toLowerCase().includes('not found')) {
+          // Process exited before we could attach - this is expected for short-lived processes
+          this.processMonitor.untrackPid(pid);
+          this.logger.log(`⚠ PID ${pid} exited before attach completed (process no longer exists)`);
         } else {
           this.processMonitor.untrackPid(pid);
           this.logger.log(`✗ Failed to attach to PID ${pid}: ${errorMsg}`);
+          failed++;
         }
-        failed++;
       }
     }
 
@@ -713,7 +734,7 @@ export class DebugSessionManager {
 
   /**
    * Determine the program path to use for symbol loading based on the child process type.
-   * Uses the child executable path when available and valid.
+   * Uses the child executable path when available and valid, falls back to main program path.
    */
   private getProgramPathForSymbolLoading(childExecutablePath: string | undefined): string | undefined {
     // Use child executable path if it's a full path and exists on disk
@@ -721,7 +742,12 @@ export class DebugSessionManager {
       if (fs.existsSync(childExecutablePath)) {
         return childExecutablePath;
       }
-      this.logger.log(`Warning: Child executable path does not exist, skipping symbol loading: ${childExecutablePath}`);
+      this.logger.log(`Warning: Child executable path does not exist: ${childExecutablePath}`);
+    }
+    // Fall back to main program path (required for LLDB on macOS)
+    if (this.mainProgramPath) {
+      this.logger.log(`Using main program path for symbol loading: ${this.mainProgramPath}`);
+      return this.mainProgramPath;
     }
     return undefined;
   }

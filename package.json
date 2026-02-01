@@ -2,7 +2,7 @@
   "name": "app-debug-helper",
   "displayName": "Smart Multi-Process Debugger",
   "description": "Smart auto attach debugger (lldb, cppdbg, cppvsdbg) for multi-process applications. Optimized for Chromium.",
-  "version": "1.6.2",
+  "version": "1.6.3",
   "license": "MPL-2.0",
   "publisher": "spylogsster",
   "icon": "logo.png",

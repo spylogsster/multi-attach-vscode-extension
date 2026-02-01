@@ -183,13 +183,23 @@ describe('DebugSessionManager', () => {
   });
 
   describe('attachToNewProcesses', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       jest.useRealTimers(); // Use real timers for async operations
       (PlatformUtils.getDebuggerType as jest.Mock).mockReturnValue('cppvsdbg');
       (PlatformUtils.getMIMode as jest.Mock).mockReturnValue(undefined);
       (PlatformUtils.getExecutableExtension as jest.Mock).mockReturnValue('.exe');
+      (PlatformUtils.normalizeExecutableName as jest.Mock).mockReturnValue('app.exe');
       (fs.existsSync as jest.Mock).mockReturnValue(true);
       processMonitor.setExecutableName('app.exe');
+
+      // Set up a main launch session (required for attachToNewProcesses to work)
+      const mainSession = createMockSession({
+        request: 'launch',
+        program: '/path/to/app.exe',
+        autoAttachChildProcesses: true
+      }, 'main-session');
+      processMonitor.getProcessIds = jest.fn().mockReturnValue([]);
+      await debugSessionManager.onDebugSessionStarted(mainSession);
     });
 
     afterEach(() => {
@@ -308,7 +318,7 @@ describe('DebugSessionManager', () => {
       );
     });
 
-    it('should omit program path when executable does not exist', async () => {
+    it('should fall back to main program path when child executable does not exist', async () => {
       const executablePath = '/path/to/nonexistent.exe';
       processMonitor.getProcessIds = jest.fn().mockReturnValue([1234]);
       processMonitor.getExecutablePath = jest.fn().mockReturnValue(executablePath);
@@ -320,10 +330,11 @@ describe('DebugSessionManager', () => {
       await debugSessionManager.attachToNewProcesses();
 
       expect(fs.existsSync).toHaveBeenCalledWith(executablePath);
+      // Should fall back to main program path when child executable doesn't exist
       expect(mockStartDebugging).toHaveBeenCalledWith(
         undefined,
-        expect.not.objectContaining({
-          program: expect.anything()
+        expect.objectContaining({
+          program: '/path/to/app.exe' // Falls back to main program path
         })
       );
     });
@@ -357,24 +368,34 @@ describe('DebugSessionManager', () => {
 
       const result = await debugSessionManager.attachToNewProcesses();
 
-      // Should still attach successfully, just without program path
+      // Should still attach successfully, using main program path as fallback
       expect(result.attached).toBe(1);
       expect(result.failed).toBe(0);
       expect(mockStartDebugging).toHaveBeenCalledWith(
         undefined,
-        expect.not.objectContaining({
-          program: expect.anything()
+        expect.objectContaining({
+          program: '/path/to/app.exe' // Falls back to main program path
         })
       );
     });
   });
 
   describe('attachToAllProcesses', () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       jest.useRealTimers(); // Use real timers for async operations
       (PlatformUtils.getDebuggerType as jest.Mock).mockReturnValue('cppvsdbg');
       (PlatformUtils.getMIMode as jest.Mock).mockReturnValue(undefined);
       (PlatformUtils.getExecutableExtension as jest.Mock).mockReturnValue('.exe');
+      (PlatformUtils.normalizeExecutableName as jest.Mock).mockReturnValue('app.exe');
+
+      // Set up a main launch session (required for attachToNewProcesses to work)
+      const mainSession = createMockSession({
+        request: 'launch',
+        program: '/path/to/app.exe',
+        autoAttachChildProcesses: true
+      }, 'main-session');
+      processMonitor.getProcessIds = jest.fn().mockReturnValue([]);
+      await debugSessionManager.onDebugSessionStarted(mainSession);
     });
 
     afterEach(() => {
